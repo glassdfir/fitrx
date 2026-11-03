@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FitRx Sessions</title>
+<style>
+:root {
+  --bg: #f6f5f1; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6a65; --line: #e2e0d9;
+  --accent: #2f6f62; --accent-ink: #ffffff; --stop: #c2412d; --warn-bg: #fff4dc; --warn-ink: #7a5300;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --card: #1e1e1c; --ink: #ecebe6; --muted: #9c9a93; --line: #33322e;
+    --accent: #5fb3a1; --accent-ink: #0d1f1b; --stop: #e0644f; --warn-bg: #3a2f14; --warn-ink: #f2cf7c;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 520px; margin: 0 auto; padding: 16px 16px 40px; }
+h1 { font-size: 22px; margin: 4px 0 2px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+.row { display: flex; gap: 10px; align-items: center; }
+button { font: inherit; border: 0; border-radius: 12px; padding: 14px 16px; cursor: pointer; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; flex: 1; }
+.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.stop { background: var(--stop); color: #fff; font-weight: 700; font-size: 20px; width: 100%; padding: 20px; }
+.pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.pill.on { color: var(--accent); border-color: var(--accent); }
+.presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.presets button { background: var(--bg); color: var(--ink); border: 1px solid var(--line); padding: 10px 6px; font-size: 14px; }
+.presets button.sel { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+label { font-size: 13px; color: var(--muted); display: block; }
+input { width: 100%; font: inherit; padding: 10px; margin-top: 4px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+.stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.stat .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.phase { font-size: 15px; margin-bottom: 12px; color: var(--muted); }
+.phase b { color: var(--ink); }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
+.bar > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 14px; }
+.hidden { display: none; }
+details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+#log { font-family: var(--mono); font-size: 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; margin-top: 8px; color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>FitRx Sessions</h1>
+  <p class="sub">Ramp, hold and rest routines over Bluetooth.</p>
+
+  <div id="unsupported" class="warn hidden">This browser can't use Bluetooth. Open this page in Chrome on Android or on your Mac (not Safari or iPhone).</div>
+  <div id="alert" class="warn hidden"></div>
+
+  <div class="card">
+    <div class="row">
+      <button id="connectBtn" class="primary">Connect</button>
+      <span id="connPill" class="pill">Not connected</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="presets" id="presets">
+      <button data-p="pain">Pain relief</button>
+      <button data-p="quad">Quad sets</button>
+      <button data-p="custom">Custom</button>
+    </div>
+    <div class="grid">
+      <div><label>Mode (1–8)<input id="mode" type="number" min="1" max="8" inputmode="numeric"></label></div>
+      <div><label>Peak level (1–9)<input id="level" type="number" min="1" max="9" inputmode="numeric"></label></div>
+      <div><label>Ramp up (s)<input id="ramp" type="number" min="0" step="0.5" inputmode="decimal"></label></div>
+      <div><label>Ramp down (s)<input id="rampDown" type="number" min="0" step="0.5" inputmode="decimal"></label></div>
+      <div><label>Hold (s)<input id="work" type="number" min="1" inputmode="decimal"></label></div>
+      <div><label>Rest (s)<input id="rest" type="number" min="0" inputmode="decimal"></label></div>
+      <div><label>Session (5–40 min)<input id="timer" type="number" min="5" max="40" inputmode="numeric"></label></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="phase">Phase: <b id="phase">Idle</b></div>
+    <div class="bar"><div id="progress"></div></div>
+    <div class="stats">
+      <div class="stat"><div class="k">Level</div><div class="v" id="curLevel">0</div></div>
+      <div class="stat"><div class="k">Time left</div><div class="v" id="timeLeft">--:--</div></div>
+      <div class="stat"><div class="k">Reps</div><div class="v" id="reps">0</div></div>
+      <div class="stat"><div class="k">Mode</div><div class="v" id="curMode">–</div></div>
+    </div>
+    <div class="row">
+      <button id="startBtn" class="primary" disabled>Start session</button>
+    </div>
+    <div style="height:10px"></div>
+    <button id="stopBtn" class="stop" disabled>STOP</button>
+    <p class="note">The unit's power button, or pulling a pad, is the real emergency stop. The unit's own timer is set as a backstop, so it shuts off even if Bluetooth drops.</p>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>Bluetooth log</summary>
+      <div id="log"></div>
+    </details>
+  </div>
+</main>
+
+<script>
+// Standard (HRK-016B / FitRx Wireless) profile, from the decompiled app.
+// The 7772 variant is left out on purpose: it has never been tested.
+const SERVICE = "0000ae3a-0000-1000-8000-00805f9b34fb";
+const WRITE   = "0000ae3b-0000-1000-8000-00805f9b34fb";
+const NOTIFY  = "0000ae3c-0000-1000-8000-00805f9b34fb";
+const TIMER_MIN = 5, TIMER_MAX = 40;
+
+const PRESETS = {
+  pain: { mode: 1, level: 3, ramp: 90, rampDown: 10, work: 1680, rest: 0, timer: 30 },
+  quad: { mode: 1, level: 4, ramp: 2, rampDown: 2, work: 10, rest: 50, timer: 15 },
+};
+
+const $ = id => document.getElementById(id);
+const FIELDS = ["mode", "level", "ramp", "rampDown", "work", "rest", "timer"];
+
+let device = null, writeChar = null, notifyChar = null;
+let running = false, cancelled = false, wakeLock = null;
+let sessionEnd = 0, sessionLen = 0, tickTimer = null;
+let writeChain = Promise.resolve();
+const t0 = performance.now();
+
+function log(msg) {
+  const t = ((performance.now() - t0) / 1000).toFixed(2).padStart(8);
+  const el = $("log");
+  el.textContent += `[${t}s] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+function alertMsg(msg) { const a = $("alert"); a.textContent = msg; a.classList.toggle("hidden", !msg); }
+const hex = buf => [...new Uint8Array(buf.buffer || buf)].map(b => b.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+const fromHex = s => new Uint8Array(s.match(/../g).map(h => parseInt(h, 16)));
+const dec2 = n => String(n).padStart(2, "0");
+const hex2 = n => n.toString(16).toUpperCase().padStart(2, "0");
+
+// Commands, byte-for-byte the same as fitrx_session.py
+const CMD = {
+  mode:  m => `ACAD06A1000000${dec2(Math.max(1, Math.min(8, m)))}BCBD`,
+  level: l => `ACAD06A0000000${dec2(Math.max(0, Math.min(9, l)))}BCBD`,
+  timer: min => min === 0 ? "ACAD06A200000000BCBD" : `ACAD06A2010100${hex2(min)}BCBD`,
+};
+
+// Web Bluetooth allows one GATT operation at a time, so writes are queued.
+function send(hexStr, label) {
+  const job = writeChain.then(async () => {
+    if (!writeChar || !device?.gatt?.connected) throw new Error("Not connected");
+    log(`TX ${label}  (${hexStr})`);
+    const data = fromHex(hexStr);
+    if (writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(data);
+    else await writeChar.writeValue(data);
+    await new Promise(r => setTimeout(r, 80));
+  });
+  writeChain = job.catch(() => {});
+  return job;
+}
+async function setLevel(l) { await send(CMD.level(l), `level ${l}`); $("curLevel").textContent = l; }
+async function setMode(m)  { await send(CMD.mode(m), `mode ${m}`); $("curMode").textContent = m; }
+async function setTimer(m) { await send(CMD.timer(m), m ? `timer ${m} min` : "timer off"); }
+
+async function softwareStop() {
+  try {
+    await setLevel(0);
+    await setTimer(0);
+    log("Software stop sent (level 0, timer off)");
+  } catch (e) {
+    log(`STOP FAILED: ${e.message}`);
+    alertMsg("Couldn't send stop over Bluetooth. Turn the unit off with its power button or remove the pads.");
+  }
+}
+
+// ---------- connection ----------
+async function connect() {
+  alertMsg("");
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "HRK-016B" }, { namePrefix: "FitRx Wireles" }],
+      optionalServices: [SERVICE],
+    });
+    device.addEventListener("gattserverdisconnected", onDisconnect);
+    setConn("Connecting…");
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(SERVICE);
+    writeChar = await svc.getCharacteristic(WRITE);
+    notifyChar = await svc.getCharacteristic(NOTIFY);
+    await notifyChar.startNotifications();
+    notifyChar.addEventListener("characteristicvaluechanged", e => log(`RX ${hex(e.target.value)}`));
+    log(`Connected to ${device.name}`);
+    setConn(device.name, true);
+  } catch (e) {
+    if (e.name !== "NotFoundError") alertMsg(`Couldn't connect: ${e.message}`);
+    log(`Connect failed: ${e.message}`);
+    setConn("Not connected");
+  }
+}
+function onDisconnect() {
+  log("Disconnected");
+  writeChar = notifyChar = null;
+  setConn("Not connected");
+  if (running) {
+    cancelled = true;
+    alertMsg("Bluetooth disconnected mid-session. The unit's own timer will still shut it off, but turn it off now with its power button if it's still running.");
+  }
+}
+function setConn(text, on = false) {
+  $("connPill").textContent = text;
+  $("connPill").classList.toggle("on", on);
+  $("connectBtn").textContent = on ? "Reconnect" : "Connect";
+  $("startBtn").disabled = !on || running;
+}
+
+// ---------- settings ----------
+function applyPreset(name) {
+  document.querySelectorAll("#presets button").forEach(b => b.classList.toggle("sel", b.dataset.p === name));
+  if (PRESETS[name]) FIELDS.forEach(f => $(f).value = PRESETS[name][f]);
+}
+function readSettings() {
+  const v = Object.fromEntries(FIELDS.map(f => [f, Number($(f).value)]));
+  const errs = [];
+  if (!Number.isInteger(v.mode) || v.mode < 1 || v.mode > 8) errs.push("Mode must be 1–8.");
+  if (!Number.isInteger(v.level) || v.level < 1 || v.level > 9) errs.push("Peak level must be 1–9.");
+  if (!Number.isInteger(v.timer) || v.timer < TIMER_MIN || v.timer > TIMER_MAX) errs.push(`Session must be ${TIMER_MIN}–${TIMER_MAX} minutes.`);
+  if (!(v.work > 0)) errs.push("Hold must be more than 0 seconds.");
+  if (v.rest < 0 || v.ramp < 0 || v.rampDown < 0 || [v.rest, v.ramp, v.rampDown].some(Number.isNaN)) errs.push("Ramp and rest times can't be negative.");
+  return { v, errs };
+}
+
+// ---------- session ----------
+const timeUp = () => Date.now() >= sessionEnd;
+function sleep(ms) {
+  // Wakes early if the session is cancelled or time runs out.
+  return new Promise(resolve => {
+    const end = Date.now() + ms;
+    const iv = setInterval(() => {
+      if (cancelled || Date.now() >= end || timeUp()) { clearInterval(iv); resolve(); }
+    }, 100);
+  });
+}
+function setPhase(p) { $("phase").textContent = p; }
+function tick() {
+  const left = Math.max(0, sessionEnd - Date.now());
+  const s = Math.ceil(left / 1000);
+  $("timeLeft").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  $("progress").style.width = `${100 * (1 - left / sessionLen)}%`;
+}
+
+async function startSession() {
+  const { v, errs } = readSettings();
+  if (errs.length) { alertMsg(errs.join(" ")); return; }
+  alertMsg("");
+  running = true; cancelled = false;
+  $("startBtn").disabled = true; $("stopBtn").disabled = false;
+  FIELDS.forEach(f => $(f).disabled = true);
+  document.querySelectorAll("#presets button").forEach(b => b.disabled = true);
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
+
+  sessionLen = v.timer * 60000;
+  sessionEnd = Date.now() + sessionLen;
+  tick(); tickTimer = setInterval(tick, 500);
+  let reps = 0; $("reps").textContent = 0;
+
+  try {
+    setPhase("Setting up");
+    await setLevel(0);
+    await setTimer(v.timer);            // hardware backstop
+    await setMode(v.mode);
+
+    while (!cancelled && !timeUp()) {
+      setPhase("Ramping up");
+      for (let l = 1; l <= v.level && !cancelled && !timeUp(); l++) {
+        await setLevel(l);
+        await sleep((v.ramp * 1000) / v.level);
+      }
+      if (cancelled || timeUp()) break;
+
+      setPhase("Holding");
+      await sleep(v.work * 1000);
+
+      setPhase("Ramping down");
+      for (let l = v.level - 1; l >= 0 && !cancelled; l--) {
+        await setLevel(l);
+        await sleep((v.rampDown * 1000) / v.level);
+      }
+      reps++; $("reps").textContent = reps;
+      if (cancelled || timeUp()) break;
+
+      if (v.rest > 0) { setPhase("Resting"); await sleep(v.rest * 1000); }
+    }
+    setPhase(cancelled ? "Stopped" : "Done");
+    if (!cancelled) log("Session complete");
+  } catch (e) {
+    log(`Error: ${e.message}`);
+    alertMsg(`Session error: ${e.message}`);
+    setPhase("Error");
+  } finally {
+    if (device?.gatt?.connected) await softwareStop();
+    endSession();
+  }
+}
+function endSession() {
+  running = false;
+  clearInterval(tickTimer);
+  $("stopBtn").disabled = true;
+  $("startBtn").disabled = !device?.gatt?.connected;
+  FIELDS.forEach(f => $(f).disabled = false);
+  document.querySelectorAll("#presets button").forEach(b => b.disabled = false);
+  try { wakeLock?.release(); } catch {}
+  wakeLock = null;
+}
+function stopNow() {
+  if (!running) return;
+  cancelled = true;
+  setPhase("Stopping");
+  log("Stop pressed");
+}
+
+// ---------- wiring ----------
+if (!navigator.bluetooth) {
+  $("unsupported").classList.remove("hidden");
+  $("connectBtn").disabled = true;
+}
+$("connectBtn").onclick = connect;
+$("startBtn").onclick = startSession;
+$("stopBtn").onclick = stopNow;
+document.querySelectorAll("#presets button").forEach(b => b.onclick = () => applyPreset(b.dataset.p));
+FIELDS.forEach(f => $(f).addEventListener("input", () => applyPreset("custom")));
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && running && !wakeLock) {
+    try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
+  } else if (document.visibilityState === "hidden" && running) {
+    log("Page hidden while running; Bluetooth may drop");
+  }
+});
+window.addEventListener("pagehide", () => { if (running) { cancelled = true; softwareStop(); } });
+applyPreset("pain");
+</script>
+</body>
+</html>
