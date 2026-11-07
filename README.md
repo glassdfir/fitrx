@@ -13,3 +13,7 @@ A single self-contained page with no build step. Open `index.html` or serve the 
 ## Safety
 
 This drives an electrical stimulator worn on the body. The unit's power button, or removing a pad, is the real emergency stop. Test with the pads off first. Not a medical device; follow your clinician's guidance.
+
+## License
+
+MIT © 2026 [Jon Glass](https://jon.glass/). Use it however you like; just keep the copyright notice. See [LICENSE](LICENSE).
